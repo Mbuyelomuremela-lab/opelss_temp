@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.db
+instance/
+.env
+.env.*
+!.env.example
+.venv/
+.migrations/
+.mypy_cache/
+.DS_Store
+uploads/
+temp_repro.py
+test.py
+test_database_connection.py

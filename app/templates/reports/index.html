@@ -1,0 +1,167 @@
+{% extends "base.html" %} {% set is_hq_admin = True %} {% block title %}Reports
+– OPELSS{% endblock %} {% block header_title %}Report Export Center{% endblock
+%} {% block content %}
+<div class="card rounded-4 shadow-sm p-4">
+  <h5>Export Reports</h5>
+  <form
+    method="get"
+    action="/reports/"
+    id="reportFilters"
+    class="row g-3 align-items-end"
+    data-download
+  >
+    <div class="col-12 col-lg-3">
+      <label class="form-label">Report Type</label>
+      <select class="form-select" name="report_type" id="reportType">
+        <option value="attendance" {% if report_type == "attendance" %}selected{% endif %}>
+          Attendance
+        </option>
+        <option value="assets" {% if report_type == "assets" %}selected{% endif %}>
+          Assets
+        </option>
+        <option value="visitors" {% if report_type == "visitors" %}selected{% endif %}>
+          Visitors
+        </option>
+        <option value="programmes" {% if report_type == "programmes" %}selected{% endif %}>
+          Programmes
+        </option>
+        <option value="labs" {% if report_type == "labs" %}selected{% endif %}>
+          Labs
+        </option>
+        <option value="provinces" {% if report_type == "provinces" %}selected{% endif %}>
+          Provinces
+        </option>
+      </select>
+    </div>
+    <div class="col-12 col-lg-3">
+      <label class="form-label">Province</label>
+      <select class="form-select" name="province_id" id="provinceSelect">
+        <option value="" {% if not province_ids %}selected{% endif %}>
+          All Provinces
+        </option>
+        {% for province in provinces %}
+        <option
+          value="{{ province.id }}"
+          {%
+          if
+          province_ids
+          and
+          province.id
+          in
+          province_ids
+          %}selected{%
+          endif
+          %}
+        >
+          {{ province.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-lg-3">
+      <label class="form-label">Lab</label>
+      <select class="form-select" name="lab_id" id="labSelect">
+        <option value="" {% if not lab_ids %}selected{% endif %}>
+          All Labs
+        </option>
+        {% for lab in labs %}
+        <option
+          value="{{ lab.id }}"
+          {%
+          if
+          lab_ids
+          and
+          lab.id
+          in
+          lab_ids
+          %}selected{%
+          endif
+          %}
+        >
+          {{ lab.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-lg-2">
+      <label class="form-label">Start Date</label>
+      <input
+        type="date"
+        class="form-control"
+        name="start_date"
+        value="{{ start_date.strftime('%Y-%m-%d') if start_date else '' }}"
+      />
+    </div>
+    <div class="col-12 col-lg-2">
+      <label class="form-label">End Date</label>
+      <input
+        type="date"
+        class="form-control"
+        name="end_date"
+        value="{{ end_date.strftime('%Y-%m-%d') if end_date else '' }}"
+      />
+    </div>
+    <div class="col-12 d-flex gap-2 flex-wrap">
+      <button type="submit" class="btn btn-primary">Preview</button>
+      <button type="button" id="downloadReport" class="btn btn-success">
+        Download
+      </button>
+    </div>
+  </form>
+  <div class="mt-4">
+    <div class="alert alert-info">
+      Review the filtered data below, then use Download to export exactly what
+      is displayed.
+    </div>
+    <div id="reportLinkPlaceholder"></div>
+  </div>
+  <div class="mt-4">
+    {% if report_data and report_data.columns %}
+    <div class="table-responsive">
+      <table class="table table-striped table-bordered align-middle">
+        <thead>
+          <tr>
+            {% for column in report_data.columns %}
+            <th>{{ column }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in report_data.rows %}
+          <tr>
+            {% for value in row %}
+            <td>{{ value }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% elif request.args %}
+    <div class="alert alert-secondary">
+      No records match the selected filters.
+    </div>
+    {% endif %}
+  </div>
+</div>
+<script>
+  const reportType = document.getElementById("reportType");
+  const reportForm = document.getElementById("reportFilters");
+  const provinceSelect = document.getElementById("provinceSelect");
+  const labSelect = document.getElementById("labSelect");
+  const downloadReport = document.getElementById("downloadReport");
+
+  function buildExportUrl() {
+    const params = new URLSearchParams(new FormData(reportForm));
+    return `/reports/export/${reportType.value}?${params.toString()}`;
+  }
+
+  downloadReport.addEventListener("click", () => {
+    window.location.href = buildExportUrl();
+  });
+
+  reportForm.addEventListener("submit", () => {
+    reportForm.action = "/reports/";
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,346 @@
+:root {
+  --dark-blue: #0d3b66;
+  --orange: #f4a261;
+  --green: #2a9d8f;
+  --white: #ffffff;
+  --light-gray: #f4f7f6;
+}
+
+body {
+  background-color: var(--light-gray);
+  color: #2b2b2b;
+  font-family: "Inter", "Segoe UI", Roboto, sans-serif;
+}
+
+.sidebar {
+  width: 240px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  min-height: 100vh;
+  z-index: 1000;
+  transition: all 0.25s ease;
+}
+
+.main-content {
+  margin-left: 240px;
+  transition: margin-left 0.25s ease;
+}
+
+/* Sticky footer: keep the footer pinned to the bottom on every page,
+   regardless of how much content the page has. The content column is a
+   flex column at least viewport-tall; <main> grows to fill the gap so
+   the footer always lands at the bottom with a consistent height. */
+#app-shell {
+  min-height: 100vh;
+}
+#app-shell > .flex-grow-1 {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+#app-shell > .flex-grow-1 > main {
+  flex: 1 0 auto;
+}
+#app-shell > .flex-grow-1 > footer {
+  flex-shrink: 0;
+}
+
+.sidebar.active {
+  transform: translateX(-260px);
+}
+
+.sidebar .nav-link {
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 0.75rem;
+}
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.card {
+  background-color: #ffffff;
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.btn-primary {
+  background-color: var(--dark-blue);
+  border-color: var(--dark-blue);
+}
+
+.btn-primary:hover {
+  background-color: #0a3160;
+  border-color: #0a3160;
+}
+
+.btn-warning {
+  background-color: var(--orange);
+  border-color: var(--orange);
+}
+
+.btn-warning:hover {
+  background-color: #de8d4f;
+  border-color: #de8d4f;
+}
+
+.btn-success {
+  background-color: var(--green);
+  border-color: var(--green);
+}
+
+.btn-success:hover {
+  background-color: #24836f;
+  border-color: #24836f;
+}
+
+.table thead th {
+  background-color: #f5f7fb;
+}
+
+.navbar {
+  background-color: rgba(255, 255, 255, 0.95);
+}
+
+.announcement-carousel .card-body {
+  min-height: 260px;
+}
+
+.announcement-carousel-control {
+  width: 44px;
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+  opacity: 1;
+}
+
+.announcement-carousel .carousel-control-prev {
+  left: -56px;
+}
+
+.announcement-carousel .carousel-control-next {
+  right: -56px;
+}
+
+.announcement-carousel-control .carousel-control-prev-icon,
+.announcement-carousel-control .carousel-control-next-icon {
+  background-color: rgba(13, 59, 102, 0.85);
+  border-radius: 50%;
+  padding: 1.1rem;
+  background-size: 60% 60%;
+}
+
+/* ── Selectable table rows ── */
+.selectable-table tbody tr {
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+/* Selected state — target <td> cells to beat Bootstrap 5's CSS-variable-based hover layer */
+.selectable-table tbody tr.table-row-selected > td,
+.selectable-table tbody tr.table-row-selected:hover > td {
+  background-color: #e3f2fd !important;
+  color: #0d3b66 !important;
+  --bs-table-bg-state: #e3f2fd !important;
+  --bs-table-color-state: #0d3b66 !important;
+}
+
+/* Province group header rows in labs table */
+.province-group-header {
+  background-color: #e8edf5 !important;
+  font-weight: 600;
+  color: var(--dark-blue);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: default !important;
+  pointer-events: none;
+}
+
+.province-group-header td {
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+}
+
+/* Mobile sidebar overlay backdrop */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1029;
+}
+
+.sidebar-backdrop.show {
+  display: block;
+}
+
+@media (max-width: 991px) {
+  /* On small screens, sidebar is hidden off-screen by default */
+  .sidebar {
+    position: fixed;
+    z-index: 1030;
+    transform: translateX(-260px);
+  }
+
+  /* Slide in when toggled */
+  .sidebar.active {
+    transform: translateX(0);
+  }
+
+  /* Main content takes full width — no left margin */
+  .main-content {
+    margin-left: 0 !important;
+  }
+
+  .announcement-carousel .card-body {
+    min-height: 220px;
+  }
+
+  .announcement-carousel .carousel-control-prev {
+    left: 8px;
+  }
+
+  .announcement-carousel .carousel-control-next {
+    right: 8px;
+  }
+}
+
+/* Loading Spinner Animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner-circle {
+  width: 60px;
+  height: 60px;
+  border: 4px solid rgba(13, 59, 102, 0.2);
+  border-top-color: var(--dark-blue);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.loading-overlay.show {
+  display: flex;
+}
+
+.loading-container {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 1rem;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.loading-container .spinner-circle {
+  margin: 0 auto 1rem;
+}
+
+.loading-text {
+  color: var(--dark-blue);
+  font-weight: 500;
+  margin-top: 1rem;
+}
+
+/* Password Modal Styles */
+.password-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.password-modal-overlay.show {
+  display: flex;
+}
+
+.password-modal-content {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 1rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 90%;
+  text-align: center;
+}
+
+.password-modal-content h5 {
+  color: var(--dark-blue);
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+.password-display {
+  background-color: #f0f3f7;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  border-left: 4px solid var(--orange);
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+.password-display code {
+  font-size: 1.25rem;
+  color: var(--dark-blue);
+  font-weight: 600;
+  word-break: break-all;
+  letter-spacing: 0.05em;
+}
+
+.password-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.password-actions button {
+  flex: 1;
+  max-width: 200px;
+}
+
+.copy-feedback {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(42, 157, 143, 0.9);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.copy-feedback.show {
+  opacity: 1;
+}

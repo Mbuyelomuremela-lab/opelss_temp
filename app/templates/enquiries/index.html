@@ -1,0 +1,673 @@
+{% extends "base.html" %} {% block title %}Enquiries – OPELSS{% endblock %} {% block
+header_title %}Enquiry Management{% endblock %} {% block content %}
+<div class="row g-4">
+  <div class="col-12">
+    <div class="card rounded-4 shadow-sm p-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">Enquiry Records</h5>
+        <div class="d-flex gap-2">
+          {% if current_user.role == "Lab Trainee" %}
+            <button class="btn btn-warning text-white" id="enquiryNewBtn" type="button"
+              data-bs-toggle="modal" data-bs-target="#enquiryCreateModal">
+              <i class="fa fa-plus me-1"></i> New Enquiry
+            </button>
+            <button class="btn btn-outline-primary" id="enquiryEditBtn" type="button" disabled>Edit</button>
+            <button class="btn btn-outline-danger" id="enquiryDeleteBtn" type="button" disabled>Delete</button>
+          {% endif %}
+          {% if is_hq_admin %}
+            <button class="btn btn-outline-info" id="enquiryViewBtn" type="button" disabled>View Details</button>
+            <button class="btn btn-outline-primary" id="enquiryActionBtn" type="button" disabled>Action</button>
+            {% if can_manage_enquiries %}
+            <button class="btn btn-outline-secondary" id="enquiryAssignBtn" type="button" disabled>Assign</button>
+            <button class="btn btn-outline-danger" id="enquiryCloseBtn" type="button" disabled>Close</button>
+            <button class="btn btn-outline-success" id="enquiryReopenBtn" type="button" disabled>Reopen</button>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+
+      {# ── Filters ── #}
+      <div class="mb-3">
+        <form id="enquiryFiltersForm" method="get" class="row g-2 align-items-end">
+          <div class="col-auto">
+            <label class="form-label small">Status</label>
+            <select name="status" class="form-select form-select-sm">
+              <option value="">All</option>
+              {% for s in ["Open","Assigned","In Progress","Resolved","Not Resolved","Closed"] %}
+              <option value="{{ s }}" {% if request.args.get('status') == s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% if is_hq_admin %}
+          <div class="col-auto">
+            <label class="form-label small">Lab</label>
+            <select name="lab_id" class="form-select form-select-sm">
+              <option value="">All Labs</option>
+              {% for lab in labs %}
+              <option value="{{ lab.id }}" {% if request.args.get('lab_id')|int == lab.id %}selected{% endif %}>{{ lab.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+          <div class="col-auto">
+            <button class="btn btn-secondary btn-sm" type="submit">Filter</button>
+            <a class="btn btn-link btn-sm" href="{{ url_for('enquiries.index') }}">Reset</a>
+          </div>
+        </form>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle selectable-table" id="enquiriesTable">
+          <thead>
+            <tr>
+              <th>Tracking</th>
+              <th>Student</th>
+              <th>Category</th>
+              <th>Status</th>
+              <th>Lab</th>
+              {% if is_hq_admin %}
+              <th>Assigned To</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody id="enquiriesTableBody">
+            {% set status_filter = request.args.get('status', '') %}
+            {% set lab_filter = request.args.get('lab_id', '')|int %}
+            {% for enquiry in enquiries %}
+            {% if (not status_filter or enquiry.status == status_filter) and (not lab_filter or enquiry.lab_id == lab_filter) %}
+            <tr
+              data-id="{{ enquiry.id }}"
+              data-tracking="{{ enquiry.tracking_number }}"
+              data-student="{{ enquiry.student_name }}"
+              data-student-number="{{ enquiry.student_number }}"
+              data-category="{{ enquiry.category }}"
+              data-description="{{ enquiry.description | e }}"
+              data-escalation-reason="{{ enquiry.escalation_reason or '' | e }}"
+              data-resolution-note="{{ enquiry.resolution_note or '' | e }}"
+              data-not-resolved-reason="{{ enquiry.not_resolved_reason or '' | e }}"
+              data-status="{{ enquiry.status }}"
+              data-lab="{{ enquiry.lab.name }}"
+              data-assignee="{{ enquiry.assignee.full_name if enquiry.assignee else '' }}"
+              data-assigned-to="{{ enquiry.assigned_to or '' }}"
+              data-created="{{ enquiry.created_at.strftime('%Y-%m-%d %H:%M') if enquiry.created_at else '' }}"
+              data-assigned-at="{{ enquiry.assigned_at.strftime('%Y-%m-%d %H:%M') if enquiry.assigned_at else '' }}"
+              data-in-progress-at="{{ enquiry.in_progress_at.strftime('%Y-%m-%d %H:%M') if enquiry.in_progress_at else '' }}"
+              data-resolved-at="{{ enquiry.resolved_at.strftime('%Y-%m-%d %H:%M') if enquiry.resolved_at else '' }}"
+              data-closed-at="{{ enquiry.closed_at.strftime('%Y-%m-%d %H:%M') if enquiry.closed_at else '' }}"
+            >
+              <td>{{ enquiry.tracking_number }}</td>
+              <td>{{ enquiry.student_name }}</td>
+              <td>{{ enquiry.category }}</td>
+              <td>
+                {% set badge = {
+                  'Open': 'bg-primary',
+                  'Assigned': 'bg-info text-dark',
+                  'In Progress': 'bg-warning text-dark',
+                  'Resolved': 'bg-success',
+                  'Not Resolved': 'bg-danger',
+                  'Closed': 'bg-secondary'
+                } %}
+                <span class="badge {{ badge.get(enquiry.status, 'bg-secondary') }}">{{ enquiry.status }}</span>
+              </td>
+              <td>{{ enquiry.lab.name }}</td>
+              {% if is_hq_admin %}
+              <td>{{ enquiry.assignee.full_name if enquiry.assignee else '—' }}</td>
+              {% endif %}
+            </tr>
+            {% endif %}
+            {% else %}
+            <tr>
+              <td colspan="6" class="text-center text-muted">No enquiries found.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Lab Trainee: Create Modal ── #}
+{% if current_user.role == "Lab Trainee" %}
+<div class="modal fade" id="enquiryCreateModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content">
+    <form method="post" action="{{ url_for('enquiries.create') }}" id="enquiryCreateForm">
+      {{ form.hidden_tag() }}
+      <div class="modal-header">
+        <h5 class="modal-title">Submit & Escalate Enquiry</h5>
+        <button class="btn-close" type="button" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            {{ form.student_name.label(class_='form-label') }}
+            {{ form.student_name(class_='form-control') }}
+          </div>
+          <div class="col-md-6">
+            {{ form.student_number.label(class_='form-label') }}
+            {{ form.student_number(class_='form-control') }}
+          </div>
+          <div class="col-12">
+            {{ form.category.label(class_='form-label') }}
+            <select name="category" id="category" class="form-select" required>
+              <option value="">— Select Category —</option>
+              <optgroup label="Academic Administration">
+                <option>Applications for Admission</option>
+                <option>Registration</option>
+                <option>Re-admission / Re-registration</option>
+                <option>Academic Results / Transcripts</option>
+                <option>Module / Course Changes</option>
+              </optgroup>
+              <optgroup label="Financial">
+                <option>Bursary and Funding</option>
+                <option>NSFAS</option>
+                <option>Fees and Payments</option>
+              </optgroup>
+              <optgroup label="Digital Platforms">
+                <option>myUnisa</option>
+                <option>myLife Email</option>
+                <option>Moodle / Study Material</option>
+                <option>Student Portal / Student Account</option>
+              </optgroup>
+              <optgroup label="Assessments">
+                <option>Assignments</option>
+                <option>Examinations</option>
+              </optgroup>
+              <optgroup label="General">
+                <option>General Enquiry</option>
+                <option>Other</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="col-12">
+            {{ form.description.label(class_='form-label') }}
+            {{ form.description(class_='form-control', rows=3) }}
+          </div>
+          <div class="col-12">
+            {{ form.escalation_reason.label(class_='form-label') }}
+            {{ form.escalation_reason(class_='form-control', rows=3, placeholder="Why can't this be resolved at lab level?") }}
+          </div>
+        </div>
+        <input type="hidden" name="lab_id" id="lab_id" value="{{ current_user.assigned_lab_id or '' }}">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        {{ form.submit(class_='btn btn-warning text-white') }}
+      </div>
+    </form>
+  </div></div>
+</div>
+
+{# ── Lab Trainee: Edit Modal ── #}
+<div class="modal fade" id="enquiryEditModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content">
+    <form id="enquiryEditForm" method="post" data-ajax-action="true">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Enquiry</h5>
+        <button class="btn-close" type="button" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Student Name</label>
+            <input type="text" name="student_name" id="editStudentName" class="form-control" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Student Number</label>
+            <input type="text" name="student_number" id="editStudentNumber" class="form-control" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Category</label>
+            <select name="category" id="editCategory" class="form-select" required>
+              <option value="">— Select Category —</option>
+              <optgroup label="Academic Administration">
+                <option>Applications for Admission</option>
+                <option>Registration</option>
+                <option>Re-admission / Re-registration</option>
+                <option>Academic Results / Transcripts</option>
+                <option>Module / Course Changes</option>
+              </optgroup>
+              <optgroup label="Financial">
+                <option>Bursary and Funding</option>
+                <option>NSFAS</option>
+                <option>Fees and Payments</option>
+              </optgroup>
+              <optgroup label="Digital Platforms">
+                <option>myUnisa</option>
+                <option>myLife Email</option>
+                <option>Moodle / Study Material</option>
+                <option>Student Portal / Student Account</option>
+              </optgroup>
+              <optgroup label="Assessments">
+                <option>Assignments</option>
+                <option>Examinations</option>
+              </optgroup>
+              <optgroup label="General">
+                <option>General Enquiry</option>
+                <option>Other</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Description</label>
+            <textarea name="description" id="editDescription" class="form-control" rows="3" required></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Reason for Escalation</label>
+            <textarea name="escalation_reason" id="editEscalationReason" class="form-control" rows="3" required></textarea>
+          </div>
+        </div>
+        <input type="hidden" name="lab_id" value="{{ current_user.assigned_lab_id }}">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" type="submit">Save Changes</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+{% endif %}
+
+{# ── Admin: Assign Modal ── #}
+{% if can_manage_enquiries %}
+<div class="modal fade" id="enquiryAssignModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <form id="enquiryAssignForm" method="post" data-ajax-action="true">
+      <div class="modal-header">
+        <h5 class="modal-title">Assign Enquiry</h5>
+        <button class="btn-close" type="button" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <p class="text-muted small mb-3" id="assignEnquiryInfo"></p>
+        <div class="mb-3">
+          {{ assign_form.assigned_to.label(class_='form-label') }}
+          {{ assign_form.assigned_to(class_='form-select') }}
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" type="submit">Assign</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+{% endif %}
+
+{# ── HQ/Admin: Enquiry Detail Modal ── #}
+{% if is_hq_admin %}
+<div class="modal fade" id="enquiryDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content">
+    <div class="modal-header">
+      <h5 class="modal-title">Enquiry Details — <span id="detailTracking"></span></h5>
+      <button class="btn-close" type="button" data-bs-dismiss="modal"></button>
+    </div>
+    <div class="modal-body">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <p class="mb-1 text-muted small">Student Name</p>
+          <p class="fw-semibold" id="detailStudent"></p>
+        </div>
+        <div class="col-md-6">
+          <p class="mb-1 text-muted small">Student Number</p>
+          <p class="fw-semibold" id="detailStudentNumber"></p>
+        </div>
+        <div class="col-md-6">
+          <p class="mb-1 text-muted small">Category</p>
+          <p id="detailCategory"></p>
+        </div>
+        <div class="col-md-6">
+          <p class="mb-1 text-muted small">Status</p>
+          <p id="detailStatus"></p>
+        </div>
+        <div class="col-md-6">
+          <p class="mb-1 text-muted small">Lab</p>
+          <p id="detailLab"></p>
+        </div>
+        <div class="col-md-6">
+          <p class="mb-1 text-muted small">Assigned To</p>
+          <p id="detailAssignee"></p>
+        </div>
+        <div class="col-12">
+          <p class="mb-1 text-muted small">Description</p>
+          <p id="detailDescription" class="border rounded p-2 bg-light" style="white-space:pre-wrap"></p>
+        </div>
+        <div class="col-12">
+          <p class="mb-1 text-muted small">Reason for Escalation</p>
+          <p id="detailEscalation" class="border rounded p-2 bg-light" style="white-space:pre-wrap"></p>
+        </div>
+        <div id="detailResolutionWrap" class="col-12 d-none">
+          <p class="mb-1 text-muted small">Resolution Note</p>
+          <p id="detailResolution" class="border rounded p-2 bg-light text-success" style="white-space:pre-wrap"></p>
+        </div>
+        <div id="detailNotResolvedWrap" class="col-12 d-none">
+          <p class="mb-1 text-muted small">Not Resolved Reason</p>
+          <p id="detailNotResolved" class="border rounded p-2 bg-light text-danger" style="white-space:pre-wrap"></p>
+        </div>
+        <div class="col-12">
+          <p class="mb-1 text-muted small">Timeline</p>
+          <ul class="list-unstyled small text-muted" id="detailTimeline"></ul>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+    </div>
+  </div></div>
+</div>
+{% endif %}
+
+{# ── HQ/Admin: Action Modal (In Progress / Resolve / Not Resolved) ── #}
+{% if is_hq_admin %}
+<div class="modal fade" id="enquiryActionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header">
+      <h5 class="modal-title" id="actionModalTitle">Update Enquiry</h5>
+      <button class="btn-close" type="button" data-bs-dismiss="modal"></button>
+    </div>
+    <div class="modal-body">
+      <p class="text-muted small" id="actionEnquiryInfo"></p>
+
+      {# Start Progress #}
+      <form id="startProgressForm" method="post" data-ajax-action="true" class="d-none">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <p>Mark this enquiry as <strong>In Progress</strong>?</p>
+        <button class="btn btn-warning w-100" type="submit">Start Handling</button>
+      </form>
+
+      {# Resolve #}
+      <form id="resolveForm" method="post" data-ajax-action="true" class="d-none">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div class="mb-3">
+          {{ resolve_form.resolution_note.label(class_='form-label') }}
+          {{ resolve_form.resolution_note(class_='form-control', rows=4) }}
+        </div>
+        <button class="btn btn-success w-100" type="submit">Mark Resolved</button>
+      </form>
+
+      {# Not Resolved #}
+      <form id="notResolvedForm" method="post" data-ajax-action="true" class="d-none">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div class="mb-3">
+          {{ not_resolved_form.not_resolved_reason.label(class_='form-label') }}
+          {{ not_resolved_form.not_resolved_reason(class_='form-control', rows=4) }}
+        </div>
+        <button class="btn btn-danger w-100" type="submit">Mark Not Resolved</button>
+      </form>
+    </div>
+  </div></div>
+</div>
+{% endif %}
+
+{# ── Delete form ── #}
+<form id="enquiryDeleteForm" method="post" class="d-none">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+</form>
+
+{# ── Close form ── #}
+{% if can_manage_enquiries %}
+<form id="enquiryCloseForm" method="post" class="d-none">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+</form>
+{% endif %}
+
+{# ── Tracking number confirmation modal (after submit) ── #}
+<div class="modal fade" id="trackingConfirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content text-center p-4">
+      <div class="mb-3">
+        <i class="fa fa-check-circle fa-3x text-success"></i>
+      </div>
+      <h5 class="mb-2">Enquiry Submitted & Escalated</h5>
+      <p class="text-muted mb-1">Share this reference number with the student:</p>
+      <div class="bg-light rounded p-3 mb-3">
+        <code class="fs-4 fw-bold text-dark" id="confirmTrackingNumber"></code>
+      </div>
+      <p class="text-muted small" id="confirmStudentName"></p>
+      <button class="btn btn-warning text-white w-100" id="trackingConfirmDoneBtn">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const table = document.getElementById("enquiriesTable");
+  let selected = null;
+
+  // ── Row selection ──
+  table?.addEventListener("click", (event) => {
+    const row = event.target.closest("tr[data-id]");
+    if (!row || !table.contains(row)) return;
+    table.querySelectorAll("tbody tr").forEach(r => r.classList.remove("table-row-selected"));
+    row.classList.add("table-row-selected");
+    selected = row;
+
+    const status = row.dataset.status;
+    const assignedTo = row.dataset.assignedTo;
+
+    {% if current_user.role == "Lab Trainee" %}
+    const editBtn = document.getElementById("enquiryEditBtn");
+    const deleteBtn = document.getElementById("enquiryDeleteBtn");
+    const canModify = status === "Open";
+    editBtn.disabled = !canModify;
+    deleteBtn.disabled = !canModify;
+    {% endif %}
+
+    {% if is_hq_admin %}
+    document.getElementById("enquiryViewBtn").disabled = false;
+    const actionBtn = document.getElementById("enquiryActionBtn");
+    const canAction = (status === "Assigned" && assignedTo === "{{ current_user.id }}")
+                   || (status === "In Progress" && (assignedTo === "{{ current_user.id }}" {% if can_manage_enquiries %} || true {% endif %}))
+                   {% if can_manage_enquiries %}|| status === "Assigned"{% endif %};
+    actionBtn.disabled = !canAction;
+    {% endif %}
+
+    {% if can_manage_enquiries %}
+    const assignBtn = document.getElementById("enquiryAssignBtn");
+    const closeBtn = document.getElementById("enquiryCloseBtn");
+    const reopenBtn = document.getElementById("enquiryReopenBtn");
+    assignBtn.disabled = !(status === "Open" || status === "Not Resolved");
+    closeBtn.disabled = status === "Closed";
+    reopenBtn.disabled = status !== "Closed";
+    {% endif %}
+  });
+
+  {% if current_user.role == "Lab Trainee" %}
+  // ── Edit ──
+  document.getElementById("enquiryEditBtn")?.addEventListener("click", () => {
+    if (!selected) return;
+    document.getElementById("editStudentName").value = selected.dataset.student;
+    document.getElementById("editStudentNumber").value = selected.dataset.studentNumber;
+    document.getElementById("editCategory").value = selected.dataset.category;
+    document.getElementById("editDescription").value = selected.dataset.description;
+    document.getElementById("editEscalationReason").value = selected.dataset.escalationReason;
+    document.getElementById("enquiryEditForm").action = `/enquiries/${selected.dataset.id}/edit`;
+    new bootstrap.Modal(document.getElementById("enquiryEditModal")).show();
+  });
+
+  // ── Delete ──
+  document.getElementById("enquiryDeleteBtn")?.addEventListener("click", () => {
+    if (!selected || !confirm(`Delete enquiry "${selected.dataset.tracking}"?`)) return;
+    const form = document.getElementById("enquiryDeleteForm");
+    form.action = `/enquiries/${selected.dataset.id}/delete`;
+    form.submit();
+  });
+
+  // ── Submit & Escalate (AJAX with tracking confirmation) ──
+  const createForm = document.getElementById("enquiryCreateForm");
+  createForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const submitBtn = createForm.querySelector("[type=submit]");
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Submitting…"; }
+    if (typeof showLoadingOverlay === "function") showLoadingOverlay();
+    const formData = new FormData(createForm);
+    const obj = {};
+    formData.forEach((v, k) => obj[k] = v);
+    try {
+      const resp = await fetch(createForm.action, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest", "X-CSRFToken": obj.csrf_token || "" },
+        body: JSON.stringify(obj),
+      });
+      const data = await resp.json();
+      if (typeof hideLoadingOverlay === "function") hideLoadingOverlay();
+      if (data.success) {
+        bootstrap.Modal.getInstance(document.getElementById("enquiryCreateModal"))?.hide();
+        document.getElementById("confirmTrackingNumber").textContent = data.tracking_number;
+        document.getElementById("confirmStudentName").textContent = `Student: ${data.student_name}`;
+        const confirmModal = document.getElementById("trackingConfirmModal");
+        const bsConfirm = new bootstrap.Modal(confirmModal, { backdrop: "static", keyboard: false });
+        document.getElementById("trackingConfirmDoneBtn").onclick = () => {
+          if (typeof showLoadingOverlay === "function") showLoadingOverlay();
+          bsConfirm.hide();
+          location.reload();
+        };
+        bsConfirm.show();
+        createForm.reset();
+      } else {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Submit & Escalate"; }
+        alert(data.message || "Failed to submit enquiry.");
+      }
+    } catch {
+      if (typeof hideLoadingOverlay === "function") hideLoadingOverlay();
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Submit & Escalate"; }
+      alert("An error occurred. Please try again.");
+    }
+  });
+  {% endif %}
+
+  {% if is_hq_admin %}
+  // ── View Details ──
+  document.getElementById("enquiryViewBtn")?.addEventListener("click", () => {
+    if (!selected) return;
+    const d = selected.dataset;
+    const statusBadges = {
+      "Open": "bg-primary", "Assigned": "bg-info text-dark",
+      "In Progress": "bg-warning text-dark", "Resolved": "bg-success",
+      "Not Resolved": "bg-danger", "Closed": "bg-secondary"
+    };
+    document.getElementById("detailTracking").textContent = d.tracking;
+    document.getElementById("detailStudent").textContent = d.student;
+    document.getElementById("detailStudentNumber").textContent = d.studentNumber;
+    document.getElementById("detailCategory").textContent = d.category;
+    document.getElementById("detailStatus").innerHTML = `<span class="badge ${statusBadges[d.status] || 'bg-secondary'}">${d.status}</span>`;
+    document.getElementById("detailLab").textContent = d.lab || "—";
+    document.getElementById("detailAssignee").textContent = d.assignee || "—";
+    document.getElementById("detailDescription").textContent = d.description;
+    document.getElementById("detailEscalation").textContent = d.escalationReason || "—";
+
+    const resWrap = document.getElementById("detailResolutionWrap");
+    const notResWrap = document.getElementById("detailNotResolvedWrap");
+    if (d.resolutionNote) {
+      document.getElementById("detailResolution").textContent = d.resolutionNote;
+      resWrap.classList.remove("d-none");
+    } else { resWrap.classList.add("d-none"); }
+    if (d.notResolvedReason) {
+      document.getElementById("detailNotResolved").textContent = d.notResolvedReason;
+      notResWrap.classList.remove("d-none");
+    } else { notResWrap.classList.add("d-none"); }
+
+    const timeline = [];
+    if (d.created)      timeline.push(`📋 Submitted: ${d.created}`);
+    if (d.assignedAt)   timeline.push(`👤 Assigned: ${d.assignedAt}`);
+    if (d.inProgressAt) timeline.push(`⚙️ In Progress: ${d.inProgressAt}`);
+    if (d.resolvedAt)   timeline.push(`✅ Resolved/Not Resolved: ${d.resolvedAt}`);
+    if (d.closedAt)     timeline.push(`🔒 Closed: ${d.closedAt}`);
+    document.getElementById("detailTimeline").innerHTML = timeline.map(t => `<li>${t}</li>`).join("") || "<li>No timeline events yet.</li>";
+
+    new bootstrap.Modal(document.getElementById("enquiryDetailModal")).show();
+  });
+  {% endif %}
+
+  {% if can_manage_enquiries %}
+  // ── Assign ──
+  document.getElementById("enquiryAssignBtn")?.addEventListener("click", () => {
+    if (!selected) return;
+    document.getElementById("assignEnquiryInfo").textContent =
+      `${selected.dataset.tracking} — ${selected.dataset.student}`;
+    const isReassign = selected.dataset.status === "Not Resolved";
+    document.getElementById("enquiryAssignForm").action =
+      `/enquiries/${selected.dataset.id}/${isReassign ? "reassign" : "assign"}`;
+    new bootstrap.Modal(document.getElementById("enquiryAssignModal")).show();
+  });
+
+  // ── Close ──
+  document.getElementById("enquiryCloseBtn")?.addEventListener("click", () => {
+    if (!selected || !confirm(`Close enquiry "${selected.dataset.tracking}"?`)) return;
+    const form = document.getElementById("enquiryCloseForm");
+    form.action = `/enquiries/${selected.dataset.id}/close`;
+    form.submit();
+  });
+
+  // ── Reopen ──
+  document.getElementById("enquiryReopenBtn")?.addEventListener("click", () => {
+    if (!selected || !confirm(`Reopen enquiry "${selected.dataset.tracking}"?`)) return;
+    const form = document.getElementById("enquiryCloseForm");
+    form.action = `/enquiries/${selected.dataset.id}/reopen`;
+    form.submit();
+  });
+  {% endif %}
+
+  {% if is_hq_admin %}
+  // ── Action modal ──
+  document.getElementById("enquiryActionBtn")?.addEventListener("click", () => {
+    if (!selected) return;
+    const status = selected.dataset.status;
+    document.getElementById("actionEnquiryInfo").textContent =
+      `${selected.dataset.tracking} — ${selected.dataset.student}`;
+
+    ["startProgressForm","resolveForm","notResolvedForm"].forEach(id => {
+      document.getElementById(id).classList.add("d-none");
+    });
+
+    if (status === "Assigned") {
+      document.getElementById("actionModalTitle").textContent = "Start Handling";
+      document.getElementById("startProgressForm").classList.remove("d-none");
+      document.getElementById("startProgressForm").action = `/enquiries/${selected.dataset.id}/start`;
+    } else if (status === "In Progress") {
+      document.getElementById("actionModalTitle").textContent = "Update Outcome";
+      document.getElementById("resolveForm").classList.remove("d-none");
+      document.getElementById("notResolvedForm").classList.remove("d-none");
+      document.getElementById("resolveForm").action = `/enquiries/${selected.dataset.id}/resolve`;
+      document.getElementById("notResolvedForm").action = `/enquiries/${selected.dataset.id}/not-resolved`;
+    }
+    new bootstrap.Modal(document.getElementById("enquiryActionModal")).show();
+  });
+  {% endif %}
+
+  // ── AJAX for assign/resolve/not-resolved/edit/start forms ──
+  // NOTE: these use data-ajax-action (not data-ajax) so main.js's global
+  // bindAjaxForms() does NOT also bind them — avoids double submission.
+  document.querySelectorAll("form[data-ajax-action='true']").forEach(form => {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (typeof showLoadingOverlay === "function") showLoadingOverlay();
+      const formData = new FormData(form);
+      const obj = {};
+      formData.forEach((v, k) => obj[k] = v);
+      try {
+        const resp = await fetch(form.action, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest", "X-CSRFToken": obj.csrf_token || "" },
+          body: JSON.stringify(obj),
+        });
+        const data = await resp.json();
+        if (data.success) {
+          bootstrap.Modal.getInstance(form.closest(".modal"))?.hide();
+          // Keep overlay up through the reload; otherwise clear it.
+          if (!data.reload && typeof hideLoadingOverlay === "function") hideLoadingOverlay();
+          if (data.reload) location.reload();
+        } else {
+          if (typeof hideLoadingOverlay === "function") hideLoadingOverlay();
+          alert(data.message || "An error occurred.");
+        }
+      } catch {
+        if (typeof hideLoadingOverlay === "function") hideLoadingOverlay();
+        alert("An error occurred. Please try again.");
+      }
+    });
+  });
+});
+</script>
+{% endblock %}
