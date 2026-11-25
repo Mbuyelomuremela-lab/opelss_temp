@@ -66,6 +66,8 @@ header_title %}Visitor Logs{% endblock %} {% block content %}
               <th>Name</th>
               <th>Category</th>
               <th>Student Number</th>
+              <th>SACE Number</th>
+              <th>ID Number</th>
               <th>Cellphone</th>
               <th>Purpose</th>
               <th>Date</th>
@@ -74,27 +76,10 @@ header_title %}Visitor Logs{% endblock %} {% block content %}
           </thead>
           <tbody id="visitorsTableBody">
             {% for visitor in visitors %}
-            <tr
-              data-id="{{ visitor.id }}"
-              data-visitor-name="{{ visitor.visitor_name }}"
-              data-category="{{ visitor.category }}"
-              data-student-number="{{ visitor.student_number or '' }}"
-              data-cellphone-number="{{ visitor.cellphone_number or '' }}"
-              data-purpose="{{ visitor.purpose }}"
-              data-visit-date="{{ visitor.visit_date.strftime('%Y-%m-%d') }}"
-              data-lab-id="{{ visitor.lab_id }}"
-            >
-              <td>{{ visitor.visitor_name }}</td>
-              <td>{{ visitor.category }}</td>
-              <td>{{ visitor.student_number or '' }}</td>
-              <td>{{ visitor.cellphone_number or '' }}</td>
-              <td>{{ visitor.purpose }}</td>
-              <td>{{ visitor.visit_date.strftime('%Y-%m-%d') }}</td>
-              <td>{{ visitor.lab.name }}</td>
-            </tr>
+            {% include "visitors/_row.html" %}
             {% else %}
             <tr>
-              <td colspan="7" class="text-center text-muted">
+              <td colspan="9" class="text-center text-muted">
                 No visitor logs yet.
               </td>
             </tr>
@@ -132,9 +117,19 @@ header_title %}Visitor Logs{% endblock %} {% block content %}
           form.student_number(class_='form-control', maxlength='8',
           inputmode='numeric', pattern='\\d{8}') }}
         </div>
+        <div class="mb-3" id="saceNumberField">
+          {{ form.sace_number.label(class_='form-label') }}{{
+          form.sace_number(class_='form-control', maxlength='8',
+          inputmode='numeric', pattern='\\d{8}') }}
+        </div>
+        <div class="mb-3" id="idNumberField">
+          {{ form.id_number.label(class_='form-label') }}{{
+          form.id_number(class_='form-control', maxlength='13',
+          inputmode='numeric', pattern='\\d{13}', autocomplete='off') }}
+        </div>
         <div class="mb-3" id="cellphoneField">
-          {{ form.cellphone_number.label(class_='form-label') }}{{
-          form.cellphone_number(class_='form-control', inputmode='tel') }}
+          <label class="form-label" for="cellphone_number">Cellphone Number <span class="text-muted small cell-optional">(optional)</span></label>{{
+          form.cellphone_number(class_='form-control', inputmode='tel', placeholder='0821234567 or +27821234567') }}
         </div>
         <div class="mb-3">
           {{ form.purpose.label(class_='form-label') }}{{
@@ -165,7 +160,9 @@ header_title %}Visitor Logs{% endblock %} {% block content %}
         <div class="mb-3"><label class="form-label" for="visitorEditName">Visitor Name</label>{{ form.visitor_name(class_='form-control', id='visitorEditName') }}</div>
         <div class="mb-3"><label class="form-label" for="visitorEditCategory">Category</label>{{ form.category(class_='form-select', id='visitorEditCategory') }}</div>
         <div class="mb-3" id="visitorEditStudentField">{{ form.student_number.label(class_='form-label') }}{{ form.student_number(class_='form-control', id='visitorEditStudentNumber', maxlength='8', inputmode='numeric', pattern='\\d{8}') }}</div>
-        <div class="mb-3" id="visitorEditCellphoneField">{{ form.cellphone_number.label(class_='form-label') }}{{ form.cellphone_number(class_='form-control', id='visitorEditCellphone', inputmode='tel') }}</div>
+        <div class="mb-3" id="visitorEditSaceField"><label class="form-label" for="visitorEditSaceNumber">SACE Number</label>{{ form.sace_number(class_='form-control', id='visitorEditSaceNumber', maxlength='8', inputmode='numeric', pattern='\\d{8}') }}</div>
+        <div class="mb-3" id="visitorEditIdField"><label class="form-label" for="visitorEditIdNumber">SA ID Number</label>{{ form.id_number(class_='form-control', id='visitorEditIdNumber', maxlength='13', inputmode='numeric', pattern='\\d{13}', autocomplete='off') }}</div>
+        <div class="mb-3" id="visitorEditCellphoneField"><label class="form-label" for="visitorEditCellphone">Cellphone Number <span class="text-muted small cell-optional">(optional)</span></label>{{ form.cellphone_number(class_='form-control', id='visitorEditCellphone', inputmode='tel', placeholder='0821234567 or +27821234567') }}</div>
         <div class="mb-3"><label class="form-label" for="visitorEditPurpose">Purpose</label>{{ form.purpose(class_='form-control', id='visitorEditPurpose', rows=3) }}</div>
         <div class="mb-3"><label class="form-label" for="visitorEditDate">Visit Date</label>{{ form.visit_date(class_='form-control', id='visitorEditDate') }}</div>
         <div class="mb-3"><label class="form-label" for="visitorEditLab">Lab</label>{{ form.lab_id(class_='form-select', id='visitorEditLab') }}</div>
@@ -177,28 +174,44 @@ header_title %}Visitor Logs{% endblock %} {% block content %}
 <form id="visitorDeleteForm" method="post" class="d-none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}" /></form>
 
 <script>
-  // Show the student-number field for UNISA students and the cellphone field
-  // for everyone else, disabling the hidden one so it is not submitted.
-  function toggleVisitorContactFields(categoryEl, studentField, studentInput, cellField, cellInput) {
+  // Show only the identity fields that apply to the chosen category, and
+  // disable hidden inputs so they are not submitted.
+  //   UNISA Student: student no. + ID + cellphone
+  //   Educator:      SACE no. + cellphone
+  //   Learner:       ID + cellphone (optional)
+  //   Other:         ID + cellphone
+  function toggleVisitorContactFields(categoryEl, f) {
     if (!categoryEl) return;
-    const isUnisa = categoryEl.value === "UNISA Student";
-    studentField.style.display = isUnisa ? "" : "none";
-    studentInput.disabled = !isUnisa;
-    cellField.style.display = isUnisa ? "none" : "";
-    cellInput.disabled = isUnisa;
-    if (isUnisa) { cellInput.value = ""; } else { studentInput.value = ""; }
+    const cat = categoryEl.value;
+    const setField = (wrap, input, show, required) => {
+      if (!wrap || !input) return;
+      wrap.style.display = show ? "" : "none";
+      input.disabled = !show;
+      input.required = show && required;
+      if (!show) input.value = "";
+    };
+    setField(f.studentField, f.studentInput, cat === "UNISA Student", true);
+    setField(f.saceField, f.saceInput, cat === "Educator", true);
+    setField(f.idField, f.idInput, cat !== "Educator", true);
+    setField(f.cellField, f.cellInput, true, cat !== "Learner");
+    const optionalTag = f.cellField?.querySelector(".cell-optional");
+    if (optionalTag) optionalTag.style.display = cat === "Learner" ? "" : "none";
   }
 
   function initVisitorLogs() {
     // --- Log a Visitor modal: toggle contact fields by category ---
     const createCategory = document.getElementById("category");
-    const createStudentField = document.getElementById("studentNumberField");
-    const createStudentInput = document.getElementById("student_number");
-    const createCellField = document.getElementById("cellphoneField");
-    const createCellInput = document.getElementById("cellphone_number");
-    const refreshCreateFields = () => toggleVisitorContactFields(
-      createCategory, createStudentField, createStudentInput, createCellField, createCellInput
-    );
+    const createFields = {
+      studentField: document.getElementById("studentNumberField"),
+      studentInput: document.getElementById("student_number"),
+      saceField: document.getElementById("saceNumberField"),
+      saceInput: document.getElementById("sace_number"),
+      idField: document.getElementById("idNumberField"),
+      idInput: document.getElementById("id_number"),
+      cellField: document.getElementById("cellphoneField"),
+      cellInput: document.getElementById("cellphone_number"),
+    };
+    const refreshCreateFields = () => toggleVisitorContactFields(createCategory, createFields);
     createCategory?.addEventListener("change", refreshCreateFields);
     refreshCreateFields();
 
@@ -227,13 +240,17 @@ header_title %}Visitor Logs{% endblock %} {% block content %}
 
     // --- Edit modal: toggle contact fields by category ---
     const editCategory = document.getElementById("visitorEditCategory");
-    const editStudentField = document.getElementById("visitorEditStudentField");
-    const editStudentInput = document.getElementById("visitorEditStudentNumber");
-    const editCellField = document.getElementById("visitorEditCellphoneField");
-    const editCellInput = document.getElementById("visitorEditCellphone");
-    const refreshEditFields = () => toggleVisitorContactFields(
-      editCategory, editStudentField, editStudentInput, editCellField, editCellInput
-    );
+    const editFields = {
+      studentField: document.getElementById("visitorEditStudentField"),
+      studentInput: document.getElementById("visitorEditStudentNumber"),
+      saceField: document.getElementById("visitorEditSaceField"),
+      saceInput: document.getElementById("visitorEditSaceNumber"),
+      idField: document.getElementById("visitorEditIdField"),
+      idInput: document.getElementById("visitorEditIdNumber"),
+      cellField: document.getElementById("visitorEditCellphoneField"),
+      cellInput: document.getElementById("visitorEditCellphone"),
+    };
+    const refreshEditFields = () => toggleVisitorContactFields(editCategory, editFields);
     editCategory?.addEventListener("change", refreshEditFields);
 
     const table = document.getElementById("visitorsTable");
@@ -253,8 +270,13 @@ header_title %}Visitor Logs{% endblock %} {% block content %}
       if (!selected) return;
       document.getElementById("visitorEditName").value = selected.dataset.visitorName;
       document.getElementById("visitorEditCategory").value = selected.dataset.category;
-      editStudentInput.value = selected.dataset.studentNumber || "";
-      editCellInput.value = selected.dataset.cellphoneNumber || "";
+      const ds = selected.dataset;
+      // Re-enable first so values set here are not cleared by a previous toggle.
+      Object.values(editFields).forEach((el) => { if (el?.tagName === "INPUT") el.disabled = false; });
+      editFields.studentInput.value = ds.studentNumber || "";
+      editFields.saceInput.value = ds.saceNumber || "";
+      editFields.idInput.value = ds.idNumber || "";
+      editFields.cellInput.value = ds.cellphoneNumber || "";
       document.getElementById("visitorEditPurpose").value = selected.dataset.purpose;
       document.getElementById("visitorEditDate").value = selected.dataset.visitDate;
       document.getElementById("visitorEditLab").value = selected.dataset.labId;

@@ -120,6 +120,10 @@ def _ensure_runtime_schema_columns(app: Flask) -> None:
                     add_column("visitors", "student_number", "VARCHAR(8)")
                 if "cellphone_number" not in vis_cols:
                     add_column("visitors", "cellphone_number", "VARCHAR(20)")
+                if "sace_number" not in vis_cols:
+                    add_column("visitors", "sace_number", "VARCHAR(8)")
+                if "id_number_encrypted" not in vis_cols:
+                    add_column("visitors", "id_number_encrypted", "VARCHAR(255)")
 
                 enq_cols = existing_columns("enquiries")
                 enq_additions = [

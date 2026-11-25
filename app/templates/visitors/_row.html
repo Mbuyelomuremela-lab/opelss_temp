@@ -1,0 +1,22 @@
+<tr
+  data-id="{{ visitor.id }}"
+  data-visitor-name="{{ visitor.visitor_name }}"
+  data-category="{{ visitor.category }}"
+  data-student-number="{{ visitor.student_number or '' }}"
+  data-sace-number="{{ visitor.sace_number or '' }}"
+  data-id-number="{{ visitor.id_number or '' }}"
+  data-cellphone-number="{{ visitor.cellphone_number or '' }}"
+  data-purpose="{{ visitor.purpose }}"
+  data-visit-date="{{ visitor.visit_date.strftime('%Y-%m-%d') }}"
+  data-lab-id="{{ visitor.lab_id }}"
+>
+  <td>{{ visitor.visitor_name }}</td>
+  <td>{{ visitor.category }}</td>
+  <td>{{ visitor.student_number or '' }}</td>
+  <td>{{ visitor.sace_number or '' }}</td>
+  <td>{{ visitor.id_number or '' }}</td>
+  <td>{{ visitor.cellphone_number or '' }}</td>
+  <td>{{ visitor.purpose }}</td>
+  <td>{{ visitor.visit_date.strftime('%Y-%m-%d') }}</td>
+  <td>{{ visitor.lab.name }}</td>
+</tr>

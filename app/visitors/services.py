@@ -22,13 +22,15 @@ def export_visitors_excel(province_id=None, lab_id=None, category=None, date_fro
     workbook = Workbook()
     raw = workbook.active
     raw.title = "Visitors"
-    raw.append(["Visitor Name", "Category", "Student Number", "Cellphone Number", "Purpose", "Visit Date", "Lab", "Province"])
+    raw.append(["Visitor Name", "Category", "Student Number", "SACE Number", "ID Number", "Cellphone Number", "Purpose", "Visit Date", "Lab", "Province"])
 
     for visitor in visitors:
         raw.append([
             visitor.visitor_name,
             visitor.category,
             visitor.student_number or "",
+            visitor.sace_number or "",
+            visitor.id_number or "",
             visitor.cellphone_number or "",
             visitor.purpose,
             visitor.visit_date.strftime("%Y-%m-%d"),

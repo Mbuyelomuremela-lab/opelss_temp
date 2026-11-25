@@ -3,7 +3,7 @@ from flask import render_template, redirect, url_for, flash, request, send_file,
 from flask_login import login_required, current_user
 from app.permissions import HQ_ROLES
 from app.visitors import visitors_bp
-from app.visitors.forms import VisitorForm
+from app.visitors.forms import VisitorForm, normalize_cellphone
 from app.visitors.services import export_visitors_excel
 from app.models.visitor import Visitor
 from app.models.lab import Lab
@@ -19,6 +19,30 @@ def _parse_date(value):
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError:
         return None
+
+
+def _apply_form_to_visitor(visitor, form):
+    """Copy form data onto a visitor, keeping only the fields for its category."""
+    category = form.category.data
+    is_unisa = category == "UNISA Student"
+    is_educator = category == "Educator"
+    visitor.visitor_name = form.visitor_name.data
+    visitor.category = category
+    visitor.student_number = form.student_number.data if is_unisa else None
+    visitor.sace_number = form.sace_number.data if is_educator else None
+    visitor.id_number = None if is_educator else form.id_number.data.strip()
+    visitor.cellphone_number = normalize_cellphone(form.cellphone_number.data) or None
+    visitor.purpose = form.purpose.data
+    visitor.visit_date = form.visit_date.data
+    visitor.lab_id = form.lab_id.data
+
+
+def _form_errors(form):
+    return "; ".join(
+        f"{form[field].label.text}: {', '.join(messages)}"
+        if field in form else f"{field}: {', '.join(messages)}"
+        for field, messages in form.errors.items()
+    )
 
 
 @visitors_bp.route("/")
@@ -83,36 +107,16 @@ def create_visitor():
         if current_user.role == "Lab Trainee" and form.lab_id.data != current_user.assigned_lab_id:
             abort(403)
 
-        is_unisa = form.category.data == "UNISA Student"
-        visitor = Visitor(
-            visitor_name=form.visitor_name.data,
-            category=form.category.data,
-            student_number=form.student_number.data if is_unisa else None,
-            cellphone_number=None if is_unisa else form.cellphone_number.data,
-            purpose=form.purpose.data,
-            visit_date=form.visit_date.data,
-            lab_id=form.lab_id.data,
-        )
+        visitor = Visitor()
+        _apply_form_to_visitor(visitor, form)
         db.session.add(visitor)
         db.session.commit()
         if request.is_json:
-            row_html = f"""
-            <tr>
-              <td>{visitor.visitor_name}</td>
-              <td>{visitor.category}</td>
-              <td>{visitor.student_number or ''}</td>
-              <td>{visitor.cellphone_number or ''}</td>
-              <td>{visitor.purpose}</td>
-              <td>{visitor.visit_date.strftime('%Y-%m-%d')}</td>
-              <td>{visitor.lab.name}</td>
-            </tr>
-            """
+            row_html = render_template("visitors/_row.html", visitor=visitor)
             return jsonify(success=True, message="Visitor logged successfully.", row_html=row_html, reload=False, reset=True)
         flash("Visitor logged successfully.", "success")
     else:
-        errors = "; ".join(
-            [f"{field}: {', '.join(messages)}" for field, messages in form.errors.items()]
-        )
+        errors = _form_errors(form)
         if request.is_json:
             return jsonify(success=False, message=f"Unable to log visitor. {errors}"), 400
         flash("Unable to log visitor. Please review the form.", "danger")
@@ -155,18 +159,11 @@ def update_visitor(visitor_id):
             abort(403)
         if current_user.role == "Lab Trainee" and form.lab_id.data != current_user.assigned_lab_id:
             abort(403)
-        is_unisa = form.category.data == "UNISA Student"
-        visitor.visitor_name = form.visitor_name.data
-        visitor.category = form.category.data
-        visitor.student_number = form.student_number.data if is_unisa else None
-        visitor.cellphone_number = None if is_unisa else form.cellphone_number.data
-        visitor.purpose = form.purpose.data
-        visitor.visit_date = form.visit_date.data
-        visitor.lab_id = form.lab_id.data
+        _apply_form_to_visitor(visitor, form)
         db.session.commit()
         flash("Visitor updated successfully.", "success")
     else:
-        flash("Unable to update visitor. Please review the form.", "danger")
+        flash(f"Unable to update visitor. {_form_errors(form)}", "danger")
     return redirect(url_for("visitors.index"))
 
 
